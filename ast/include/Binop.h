@@ -9,7 +9,7 @@ namespace dynamo
 class Binop : public dynamo::Node
 {
 	std::string m_operator;
-	Node* m_rhs, *m_lhs;
+	NodeRef m_rhs, m_lhs;
 public:
 	Binop(const char* op): m_operator(op) {}
 	NODE_TYPE getType() const override { return BINOP; }
@@ -17,11 +17,11 @@ public:
 	std::string getOperator() const { return m_operator; }
 	void setOperator(const std::string& str) { m_operator = str; }
 	
-	void setRHS(Node* n) { m_rhs = n; }
-	void setLHS(Node* n) { m_lhs = n; }
+	void setRHS(NodeRef n) { m_rhs = n; }
+	void setLHS(NodeRef n) { m_lhs = n; }
 	
-	Node* getRHS() { return m_rhs; }
-	Node* getLHS() { return m_lhs; }
+	NodeRef getRHS() { return m_rhs; }
+	NodeRef getLHS() { return m_lhs; }
 };
 
 }

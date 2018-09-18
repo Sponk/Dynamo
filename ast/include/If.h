@@ -8,17 +8,17 @@ namespace dynamo
 
 class If : public dynamo::Node
 {
-	Node* m_check, *m_body, *m_else;
+	NodeRef m_check, m_body, m_else;
 public:
 	NODE_TYPE getType() const override { return IF; }
 	
-	Node* getCheck() { return m_check; }
-	Node* getBody() { return m_body; }
-	Node* getElse() { return m_else; }
+	NodeRef getCheck() { return m_check; }
+	NodeRef getBody() { return m_body; }
+	NodeRef getElse() { return m_else; }
 	
-	void setCheck(Node* n) { m_check = n; }
-	void setBody(Node* n) { m_body = n; }
-	void setElse(Node* n) { m_else = n; }
+	void setCheck(NodeRef n) { m_check = n; }
+	void setBody(NodeRef n) { m_body = n; }
+	void setElse(NodeRef n) { m_else = n; }
 };
 
 }

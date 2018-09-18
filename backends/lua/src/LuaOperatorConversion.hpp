@@ -9,11 +9,11 @@
 class LuaOperatorConversion: public dynamo::Pass
 {
 public:
-	void handleNode(dynamo::Node* node) override
+	void handleNode(dynamo::NodeRef node) override
 	{
 		if(node->getType() == dynamo::BINOP)
 		{
-			auto binop = reinterpret_cast<Binop*>(node);
+			auto binop = reinterpret_cast<Binop*>(node.get());
 			if(binop->getOperator() == "~=")
 				binop->setOperator("!=");
 			else if(binop->getOperator() == "^")
@@ -23,7 +23,7 @@ public:
 		}
 		else if(node->getType() == dynamo::UNOP)
 		{
-			auto unop = reinterpret_cast<Unop*>(node);
+			auto unop = reinterpret_cast<Unop*>(node.get());
 			if(unop->getOperator() == "#")
 				unop->setOperator("*");
 		}

@@ -30,16 +30,20 @@ enum NODE_TYPE
 	GOTO
 };
 
+class Node;
+typedef std::shared_ptr<Node> NodeRef;
+
 class Node
 {
-	Node* m_accessor = nullptr; // Accessor for array accesses btw field accesses
+	NodeRef m_accessor = nullptr; // Accessor for array accesses btw field accesses
 	bool m_staticAccess = true;
 public:
 	virtual NODE_TYPE getType() const = 0;
 	
-	void setAccessor(Node* n) { m_accessor = n; }
-	Node* getAccessor() { return m_accessor; }
-	const Node* getAccessor() const { return m_accessor; }
+	void setAccessor(Node* n) { m_accessor = NodeRef(n); }
+	void setAccessor(NodeRef n) { m_accessor = n; }
+	NodeRef getAccessor() { return m_accessor; }
+	const NodeRef getAccessor() const { return m_accessor; }
 	
 	void setStaticAccess(bool b) { m_staticAccess = b; }
 	bool getStaticAccess() const { return m_staticAccess; }
@@ -49,23 +53,22 @@ public:
 		const Node* iter = this;
 		while(iter->getAccessor())
 		{
-			iter = iter->getAccessor();
+			iter = iter->getAccessor().get();
 		}
 		
 		return iter->getStaticAccess();
 	}
 };
 
-typedef std::shared_ptr<Node> NodeRef;
-
 class Block : public Node
 {
-	std::vector<Node*> m_children;
+	std::vector<NodeRef> m_children;
 public:
 	
 	NODE_TYPE getType() const override { return BLOCK; }
-	std::vector<Node*>& getChildren() { return m_children; }
-	void addChild(Node* n) { m_children.push_back(n); }
+	std::vector<NodeRef>& getChildren() { return m_children; }
+	void addChild(NodeRef n) { m_children.push_back(n); }
+	void addChild(Node* n) { addChild(NodeRef(n)); }
 };
 
 }

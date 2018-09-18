@@ -7,7 +7,7 @@ using namespace dynamo;
 
 void VariableScope::push()
 {
-	m_scope.push_back(std::unordered_map<std::string, Node*>());
+	m_scope.push_back(std::unordered_map<std::string, NodeRef>());
 }
 
 void VariableScope::pop()
@@ -15,7 +15,7 @@ void VariableScope::pop()
 	m_scope.pop_back();
 }
 	
-Node* VariableScope::get(const std::string& name)
+NodeRef VariableScope::get(const std::string& name)
 {
 	for(auto i = m_scope.rbegin(); i != m_scope.rend(); i++)
 	{
@@ -32,7 +32,7 @@ Node* VariableScope::get(const std::string& name)
 	return nullptr;
 }
 
-void VariableScope::set(const std::string& name, Node* n)
+void VariableScope::set(const std::string& name, NodeRef n)
 {
 	m_scope.back()[name] = n;
 }

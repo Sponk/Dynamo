@@ -18,16 +18,16 @@ using namespace dynamo;
 
 namespace
 {
-void dump(Node* node, std::ostream& out)
+void dump(NodeRef node, std::ostream& out)
 {
-	if(!node)
+	if(!node.get())
 		return;
 	
 	switch(node->getType())
 	{
 		case dynamo::BLOCK:
 		{
-			Block* b = reinterpret_cast<Block*>(node);
+			Block* b = reinterpret_cast<Block*>(node.get());
 			for(auto n : b->getChildren())
 			{
 				dump(n, out);
@@ -36,7 +36,7 @@ void dump(Node* node, std::ostream& out)
 		break;
 		case dynamo::ASSIGNMENT:
 		{
-			Assignment* a = reinterpret_cast<Assignment*>(node);
+			Assignment* a = reinterpret_cast<Assignment*>(node.get());
 			
 			if(a->isLocal())
 				out << "local ";
@@ -50,7 +50,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::VARIABLE:
 		{
-			Variable* v = reinterpret_cast<Variable*>(node);
+			Variable* v = reinterpret_cast<Variable*>(node.get());
 			
 			out << v->getName();
 			if(v->getAccessor())
@@ -71,14 +71,14 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::VALUE:
 		{
-			Value* v = reinterpret_cast<Value*>(node);
+			Value* v = reinterpret_cast<Value*>(node.get());
 			out << v->getValue(); // FIXME Check if value type and format are correct for Lua!
 		}
 		break;
 		
 		case dynamo::BINOP:
 		{
-			Binop* b = reinterpret_cast<Binop*>(node);
+			Binop* b = reinterpret_cast<Binop*>(node.get());
 			
 			out << "(";
 			dump(b->getLHS(), out);
@@ -90,7 +90,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::UNOP:
 		{
-			Unop* u = reinterpret_cast<Unop*>(node);
+			Unop* u = reinterpret_cast<Unop*>(node.get());
 			out << u->getOperator() << " ";
 			dump(u->getOperand(), out);
 		}
@@ -98,7 +98,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::FUNCTION_DECL:
 		{
-			FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node);
+			FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node.get());
 			out << (f->isLocal() ? "local " : "") << "function ";
 			dump(f->getName(), out);
 			
@@ -129,21 +129,21 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::LABEL:
 		{
-			Label* l = reinterpret_cast<Label*>(node);
+			Label* l = reinterpret_cast<Label*>(node.get());
 			out << "::" << l->getName() << "::\n";
 		}
 		break;
 		
 		case dynamo::GOTO:
 		{
-			Goto* g = reinterpret_cast<Goto*>(node);
+			Goto* g = reinterpret_cast<Goto*>(node.get());
 			out << "goto " << g->getName() << "\n";
 		}
 		break;
 		
 		case dynamo::FUNCTION_CALL:
 		{
-			FunctionCall* f = reinterpret_cast<FunctionCall*>(node);
+			FunctionCall* f = reinterpret_cast<FunctionCall*>(node.get());
 			dump(node->getAccessor(), out);
 			out << "(";
 			for(auto& param : f->getParameters())
@@ -157,7 +157,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::WHILE:
 		{
-			While* w = reinterpret_cast<While*>(node);
+			While* w = reinterpret_cast<While*>(node.get());
 			if(w->isDoWhile())
 			{
 				out << "repeat\n";
@@ -179,7 +179,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::FOR:
 		{
-			For* f = reinterpret_cast<For*>(node);
+			For* f = reinterpret_cast<For*>(node.get());
 			out << "for ";
 			dump(f->getInit(), out);
 			out << ", ";
@@ -200,7 +200,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::IF:
 		{
-			If* ifNode = reinterpret_cast<If*>(node);
+			If* ifNode = reinterpret_cast<If*>(node.get());
 			
 			if(ifNode->getCheck())
 			{
@@ -223,7 +223,7 @@ void dump(Node* node, std::ostream& out)
 		
 		case dynamo::TABLE:
 		{
-			Table* table = reinterpret_cast<Table*>(node);
+			Table* table = reinterpret_cast<Table*>(node.get());
 			size_t counter = 0;
 			
 			out << "{\n";
@@ -271,7 +271,7 @@ void luaSerialize(const Module& module, std::ostream& out)
 {
 	for(auto& k : module.getNodes())
 	{
-		dump(k.get(), out);
+		dump(k, out);
 		out << "\n";
 	}
 	

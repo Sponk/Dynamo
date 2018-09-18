@@ -66,11 +66,11 @@ std::shared_ptr<Module> root;
 	dynamo::Variable* variable;
 	dynamo::FunctionDecl* function;
 	
-	std::vector<dynamo::Node*>* nodelist;
+	std::vector<dynamo::NodeRef>* nodelist;
 	std::vector<std::string>* identifierlist;
 	
-	std::pair<dynamo::Node*, dynamo::Node*>* nodepair;
-	std::vector<std::pair<dynamo::Node*, dynamo::Node*>>* nodepairlist;
+	std::pair<dynamo::NodeRef, dynamo::NodeRef>* nodepair;
+	std::vector<std::pair<dynamo::NodeRef, dynamo::NodeRef>>* nodepairlist;
 }
 
 %start parser
@@ -159,20 +159,20 @@ parser: statlist
 		}
 	;
 	
-statlist: { $$ = new std::vector<Node*>(); }
+statlist: { $$ = new std::vector<NodeRef>(); }
 	| stat 
 		{ 
-			$$ = new std::vector<Node*>();
+			$$ = new std::vector<NodeRef>();
 			
 			if($1 != nullptr)
-				$$->push_back($1);
+				$$->push_back(NodeRef($1));
 		}
 
 	| statlist stat
 		{
 			$$ = $1;
 			if($2 != nullptr)
-				$$->push_back($2);
+				$$->push_back(NodeRef($2));
 		}
 
 stat: ';' { $$ = nullptr; }
@@ -208,8 +208,8 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$4);
 
-			loop->setBody(block);
-			loop->setCheck($2);
+			loop->setBody(NodeRef(block));
+			loop->setCheck(NodeRef($2));
 			loop->setDoWhile(false);
 			$$ = loop; 
 		}
@@ -220,8 +220,8 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$2);
 
-			loop->setBody(block);
-			loop->setCheck($4);
+			loop->setBody(NodeRef(block));
+			loop->setCheck(NodeRef($4));
 			loop->setDoWhile(true);
 			$$ = loop; 
 		}
@@ -232,10 +232,10 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$8);
 			
-			loop->setBody(block);
-			loop->setCheck($6);
+			loop->setBody(NodeRef(block));
+			loop->setCheck(NodeRef($6));
 			loop->setIncrement(nullptr);
-			loop->setInit(new Assignment(new Variable($2), $4));
+			loop->setInit(std::make_shared<Assignment>(std::make_shared<Variable>($2), NodeRef($4)));
 			
 			$$ = loop;
 		}
@@ -246,10 +246,10 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$10);
 			
-			loop->setBody(block);
-			loop->setCheck($6);
-			loop->setIncrement($8);
-			loop->setInit(new Assignment(new Variable($2), $4));
+			loop->setBody(NodeRef(block));
+			loop->setCheck(NodeRef($6));
+			loop->setIncrement(NodeRef($8));
+			loop->setInit(std::make_shared<Assignment>(std::make_shared<Variable>($2), NodeRef($4)));
 			
 			$$ = loop;
 		}
@@ -258,13 +258,13 @@ stat: ';' { $$ = nullptr; }
 	
 	| FUNCTION funcname funcbody 
 		{
-			$3->setName($2);
+			$3->setName(NodeRef($2));
 			$$ = $3;
 		}
 	
 	| LOCAL FUNCTION IDENTIFIER funcbody 
 		{ 
-			$4->setName(new Variable($3));
+			$4->setName(std::make_shared<Variable>($3));
 			$4->setLocal(true);
 			$$ = $4;
 		}
@@ -274,8 +274,8 @@ stat: ';' { $$ = nullptr; }
 			for(size_t i = 0; i < $2->size(); i++)
 			{
 				block->addChild(new Assignment(
-							new Variable(std::move((*$2)[i])), // lhs
-							new Value(VALUE_NIL), // rhs
+							std::make_shared<Variable>(std::move((*$2)[i])), // lhs
+							std::make_shared<Value>(VALUE_NIL), // rhs
 							true)); // Local
 			}
 			
@@ -302,8 +302,8 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$4);
 			
-			i->setCheck($2);
-			i->setBody(block);
+			i->setCheck(NodeRef($2));
+			i->setBody(NodeRef(block));
 			
 			$$ = i; 
 		}
@@ -314,15 +314,15 @@ stat: ';' { $$ = nullptr; }
 			auto ifBlock = new Block();
 			ifBlock->getChildren() = std::move(*$4);
 			
-			i->setCheck($2);
-			i->setBody(ifBlock);
+			i->setCheck(NodeRef($2));
+			i->setBody(NodeRef(ifBlock));
 			
 			auto e = new If();
 			auto elseBlock = new Block();
 			elseBlock->getChildren() = std::move(*$6);
-			e->setBody(elseBlock);
+			e->setBody(NodeRef(elseBlock));
 			
-			i->setElse(e);
+			i->setElse(NodeRef(e));
 			
 			$$ = i; 
 		}
@@ -333,12 +333,12 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			block->getChildren() = std::move(*$4);
 			
-			i->setCheck($2);
-			i->setBody(block);
+			i->setCheck(NodeRef($2));
+			i->setBody(NodeRef(block));
 			
 			for(size_t i = 0; i < $5->size() - 1; i++)
 			{
-				reinterpret_cast<If*>((*$5)[i])->setElse((*$5)[i + 1]);
+				std::reinterpret_pointer_cast<If>((*$5)[i])->setElse((*$5)[i + 1]);
 			}
 			
 			i->setElse((*$5)[0]);
@@ -355,10 +355,10 @@ elselist:
 			auto block = new Block();
 			block->getChildren() = std::move(*$4);
 			
-			i->setCheck($2);
-			i->setBody(block);
+			i->setCheck(NodeRef($2));
+			i->setBody(NodeRef(block));
 			
-			$$ = new std::vector<Node*>({ i });
+			$$ = new std::vector<NodeRef>({ NodeRef(i) });
 		}
 	| elselist ELSEIF exp THEN statlist
 		{
@@ -366,10 +366,10 @@ elselist:
 			auto block = new Block();
 			block->getChildren() = std::move(*$5);
 			
-			i->setCheck($3);
-			i->setBody(block);
+			i->setCheck(NodeRef($3));
+			i->setBody(NodeRef(block));
 			
-			$1->push_back(i);
+			$1->push_back(NodeRef(i));
 			$$ = $1;
 		}
 	| elselist ELSE statlist
@@ -378,9 +378,9 @@ elselist:
 			auto block = new Block();
 			block->getChildren() = std::move(*$3);
 				
-			i->setBody(block);
+			i->setBody(NodeRef(block));
 				
-			$1->push_back(i);
+			$1->push_back(NodeRef(i));
 			$$ = $1;
 		}
 	;
@@ -394,7 +394,7 @@ retstat:  RETURN ';' { $$ = new Return(); }
 			auto block = new Block();
 			block->getChildren() = std::move(*$2);
 			
-			$$->setAccessor(block);
+			$$->setAccessor(NodeRef(block));
 		}
 	| RETURN explist
 		{ 
@@ -403,7 +403,7 @@ retstat:  RETURN ';' { $$ = new Return(); }
 			auto block = new Block();
 			block->getChildren() = std::move(*$2);
 			
-			$$->setAccessor(block);
+			$$->setAccessor(NodeRef(block));
 		}
 	;
 	
@@ -415,8 +415,8 @@ name: IDENTIFIER { $$ = new Variable($1); }
 			$$ = $1;
 
 			auto iter = $$;
-			while(iter->getAccessor()) iter = iter->getAccessor();
-			iter->setAccessor(new Value(VALUE_STRING, std::string("\"") + $3 + "\""));
+			while(iter->getAccessor()) iter = iter->getAccessor().get();
+			iter->setAccessor(std::make_shared<Value>(VALUE_STRING, std::string("\"") + $3 + "\""));
 			
 			delete $3;
 		}
@@ -429,19 +429,19 @@ funcname:
 			$$ = $1;
 			
 			auto iter = $$;
-			while(iter->getAccessor()) iter = iter->getAccessor();
-			iter->setAccessor(new Value(VALUE_STRING, std::string("\"") + $3 + "\""));
+			while(iter->getAccessor()) iter = iter->getAccessor().get();
+			iter->setAccessor(std::make_shared<Value>(VALUE_STRING, std::string("\"") + $3 + "\""));
 			iter->setStaticAccess(false);
 
 			delete $3;
 		}
 	;
 	
-varlist: var { $$ = new std::vector<Node*>({ $1 }); }
+varlist: var { $$ = new std::vector<NodeRef>({ NodeRef($1) }); }
 	| varlist ',' var 
 		{ 
 			$$ = $1; 
-			$$->push_back($3); 
+			$$->push_back(NodeRef($3)); 
 		}
 	;
 	
@@ -452,15 +452,15 @@ var:
 			$$ = $1;
 			
 			auto iter = $$;
-			while(iter->getAccessor()) iter = iter->getAccessor();
-			iter->setAccessor($3);
+			while(iter->getAccessor()) iter = iter->getAccessor().get();
+			iter->setAccessor(NodeRef($3));
 		}
 	| prefixexp '.' name
 		{
 			$$ = $1;
 						
 			auto iter = $$;
-			while(iter->getAccessor()) iter = iter->getAccessor();
+			while(iter->getAccessor()) iter = iter->getAccessor().get();
 			iter->setAccessor($3);
 		}
 	;
@@ -482,14 +482,14 @@ identifierlist: IDENTIFIER
 		
 explist: exp
 		{
-			$$ = new std::vector<Node*>();
-			$$->push_back($1);
+			$$ = new std::vector<NodeRef>();
+			$$->push_back(NodeRef($1));
 		}
 		
 	| explist ',' exp
 		{
 			$$ = $1;
-			$$->push_back($3);
+			$$->push_back(NodeRef($3));
 		}
 	;
 	
@@ -504,32 +504,32 @@ exp:
 	| var  { $$ = $1; }
 	| tableconstructor  { $$ = $1; }
 	
-	| exp '+' exp { auto n = new Binop("+"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '-' exp { auto n = new Binop("-"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '*' exp { auto n = new Binop("*"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '/' exp { auto n = new Binop("/"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '/''/' exp { auto n = new Binop("//"); n->setRHS($4); n->setLHS($1); $$ = n; } 
-	| exp '^' exp { auto n = new Binop("^"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '%' exp { auto n = new Binop("%"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '&' exp { auto n = new Binop("&"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '~' exp { auto n = new Binop("~"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '|' exp { auto n = new Binop("|"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp SHIFT_RIGHT exp { auto n = new Binop(">>"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp SHIFT_LEFT exp { auto n = new Binop("<<"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp CONCAT exp { auto n = new Binop(".."); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '<' exp { auto n = new Binop("<"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp SMALLER_EQUAL exp { auto n = new Binop("<="); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp '>' exp { auto n = new Binop(">"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp GREATER_EQUAL exp { auto n = new Binop(">="); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp EQUAL exp { auto n = new Binop("=="); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp NOT_EQUAL exp { auto n = new Binop("~="); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp AND exp { auto n = new Binop("&&"); n->setRHS($3); n->setLHS($1); $$ = n; }
-	| exp OR exp { auto n = new Binop("||"); n->setRHS($3); n->setLHS($1); $$ = n; }
+	| exp '+' exp { auto n = new Binop("+"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '-' exp { auto n = new Binop("-"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '*' exp { auto n = new Binop("*"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '/' exp { auto n = new Binop("/"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '/''/' exp { auto n = new Binop("//"); n->setRHS(NodeRef($4)); n->setLHS(NodeRef($1)); $$ = n; } 
+	| exp '^' exp { auto n = new Binop("^"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '%' exp { auto n = new Binop("%"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '&' exp { auto n = new Binop("&"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '~' exp { auto n = new Binop("~"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '|' exp { auto n = new Binop("|"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp SHIFT_RIGHT exp { auto n = new Binop(">>"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp SHIFT_LEFT exp { auto n = new Binop("<<"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp CONCAT exp { auto n = new Binop(".."); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '<' exp { auto n = new Binop("<"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp SMALLER_EQUAL exp { auto n = new Binop("<="); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp '>' exp { auto n = new Binop(">"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp GREATER_EQUAL exp { auto n = new Binop(">="); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp EQUAL exp { auto n = new Binop("=="); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp NOT_EQUAL exp { auto n = new Binop("~="); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp AND exp { auto n = new Binop("&&"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
+	| exp OR exp { auto n = new Binop("||"); n->setRHS(NodeRef($3)); n->setLHS(NodeRef($1)); $$ = n; }
 	
-	| '-' exp { auto n = new Unop("-"); n->setOperand($2); $$ = n; } 
-	| NOT exp { auto n = new Unop("!"); n->setOperand($2); $$ = n; }
-	| '#' exp { auto n = new Unop("#"); n->setOperand($2); $$ = n; }
-	| '~' exp { auto n = new Unop("~"); n->setOperand($2); $$ = n; };
+	| '-' exp { auto n = new Unop("-"); n->setOperand(NodeRef($2)); $$ = n; } 
+	| NOT exp { auto n = new Unop("!"); n->setOperand(NodeRef($2)); $$ = n; }
+	| '#' exp { auto n = new Unop("#"); n->setOperand(NodeRef($2)); $$ = n; }
+	| '~' exp { auto n = new Unop("~"); n->setOperand(NodeRef($2)); $$ = n; };
 	;
 
 prefixexp: name { $$ = $1; }
@@ -541,26 +541,26 @@ functioncall: prefixexp args
 		{
 			auto call = new FunctionCall();
 			call->getParameters() = std::move(*$2);
-			call->setAccessor($1);
+			call->setAccessor(NodeRef($1));
 			$$ = call;
 		}
 	| prefixexp ':' IDENTIFIER args
 		{
 			auto call = new FunctionCall();
 			call->getParameters() = std::move(*$4);
-			call->setAccessor($1);
+			call->setAccessor(NodeRef($1));
 			
 			auto iter = $$;
-			while(iter->getAccessor()) iter = iter->getAccessor();
-			iter->setAccessor(new Value(VALUE_STRING, std::string("\"") + $3 + "\""));
+			while(iter->getAccessor()) iter = iter->getAccessor().get();
+			iter->setAccessor(std::make_shared<Value>(VALUE_STRING, std::string("\"") + $3 + "\""));
 			iter->getAccessor()->setStaticAccess(false);
 			
 			$$ = call;
 		}
 
-args: '(' ')' { $$ = new std::vector<Node*>(); }
-	| tableconstructor { $$ = new std::vector<Node*>({ $1 }); }
-	| STRING { $$ = new std::vector<Node*>({ new Value(VALUE_STRING, $1) }); }
+args: '(' ')' { $$ = new std::vector<NodeRef>(); }
+	| tableconstructor { $$ = new std::vector<NodeRef>({ NodeRef($1) }); }
+	| STRING { $$ = new std::vector<NodeRef>({ std::make_shared<Value>(VALUE_STRING, $1) }); }
 	| '(' explist ')' { $$ = $2; }
 	;
 	
@@ -572,7 +572,7 @@ funcbody: '(' ')' statlist END
 			
 			auto block = new Block();
 			block->getChildren() = std::move(*$3);
-			func->setBody(block);
+			func->setBody(NodeRef(block));
 			
 			$$ = func;
 		}
@@ -584,7 +584,7 @@ funcbody: '(' ')' statlist END
 			
 			auto block = new Block();
 			block->getChildren() = std::move(*$4);
-			func->setBody(block);
+			func->setBody(NodeRef(block));
 			
 			delete $4;
 			delete $2;
@@ -612,7 +612,7 @@ tableconstructor: '{' '}' { $$ = new Table(); }
 		}
 	;
 	
-fieldlist: field { $$ = new std::vector<std::pair<Node*, Node*>>({ *$1 }); delete $1; }
+fieldlist: field { $$ = new std::vector<std::pair<NodeRef, NodeRef>>({ *$1 }); delete $1; }
 	| fieldlist fieldsep field 
 		{
 			$$ = $1; 
@@ -624,15 +624,15 @@ fieldlist: field { $$ = new std::vector<std::pair<Node*, Node*>>({ *$1 }); delet
 	
 field: '[' exp ']' '=' exp 
 		{  
-			$$ = new std::pair<Node*, Node*>($2, $5);
+			$$ = new std::pair<NodeRef, NodeRef>($2, $5);
 		}
 	| IDENTIFIER '=' exp
 		{  
-			$$ = new std::pair<Node*, Node*>(new Variable($1), $3);
+			$$ = new std::pair<NodeRef, NodeRef>(new Variable($1), $3);
 		}
 	| exp
 		{  
-			$$ = new std::pair<Node*, Node*>(nullptr, $1);
+			$$ = new std::pair<NodeRef, NodeRef>(nullptr, $1);
 		}
 	;
 	

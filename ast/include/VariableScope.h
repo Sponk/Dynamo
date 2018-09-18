@@ -10,7 +10,7 @@ namespace dynamo
 
 class VariableScope
 {
-	std::vector<std::unordered_map<std::string, Node*>> m_scope;
+	std::vector<std::unordered_map<std::string, NodeRef>> m_scope;
 	
 public:
 	VariableScope() { push(); }
@@ -19,11 +19,11 @@ public:
 	void push();
 	void pop();
 	
-	Node* get(const std::string& name);
-	void set(const std::string& name, Node* n);
+	NodeRef get(const std::string& name);
+	void set(const std::string& name, NodeRef n);
 	bool exists(const std::string& name) const;
 	
-	std::unordered_map<std::string, Node*>& getGlobals() { return m_scope[0]; }
+	std::unordered_map<std::string, NodeRef>& getGlobals() { return m_scope[0]; }
 };
 
 }

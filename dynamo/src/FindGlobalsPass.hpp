@@ -8,11 +8,11 @@ class FindGlobalsPass: public dynamo::Pass
 {
 	std::vector<dynamo::Assignment*> m_globals;
 public:
-	void handleNode(dynamo::Node* node) override
+	void handleNode(dynamo::NodeRef node) override
 	{
 		if(node->getType() == dynamo::ASSIGNMENT)
 		{
-			auto assign = reinterpret_cast<dynamo::Assignment*>(node);
+			auto assign = reinterpret_cast<dynamo::Assignment*>(node.get());
 			if(!assign->isLocal())
 				m_globals.push_back(assign);
 		}

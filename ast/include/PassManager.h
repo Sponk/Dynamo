@@ -25,11 +25,11 @@ public:
 	void run(T& pass, const Module& module)
 	{
 		for(auto& k : module.getNodes())
-			run(pass, k.get());
+			run(pass, k);
 	}
 	
 	template<typename T>
-	void run(T& pass, Node* node)
+	void run(T& pass, NodeRef node)
 	{
 		if(!node)
 			return;
@@ -39,14 +39,14 @@ public:
 		{
 			case dynamo::BLOCK:
 			{
-				Block* b = reinterpret_cast<Block*>(node);
+				Block* b = reinterpret_cast<Block*>(node.get());
 				for(auto n : b->getChildren())
 					run(pass, n);
 			}
 			break;
 			case dynamo::ASSIGNMENT:
 			{
-				Assignment* a = reinterpret_cast<Assignment*>(node);
+				Assignment* a = reinterpret_cast<Assignment*>(node.get());
 				run(pass, a->getLHS());
 				run(pass, a->getRHS());
 			}
@@ -54,7 +54,7 @@ public:
 			
 			case dynamo::BINOP:
 			{
-				Binop* b = reinterpret_cast<Binop*>(node);
+				Binop* b = reinterpret_cast<Binop*>(node.get());
 				run(pass, b->getLHS());
 				run(pass, b->getRHS());
 			}
@@ -62,14 +62,14 @@ public:
 			
 			case dynamo::UNOP:
 			{
-				Unop* u = reinterpret_cast<Unop*>(node);
+				Unop* u = reinterpret_cast<Unop*>(node.get());
 				run(pass, u->getOperand());
 			}
 			break;
 			
 			case dynamo::FUNCTION_DECL:
 			{
-				FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node);
+				FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node.get());
 				run(pass, f->getBody());
 			}
 			break;
@@ -80,21 +80,21 @@ public:
 			break;
 			case dynamo::FUNCTION_CALL:
 			{
-				FunctionCall* f = reinterpret_cast<FunctionCall*>(node);
+				FunctionCall* f = reinterpret_cast<FunctionCall*>(node.get());
 				for(auto& param : f->getParameters())
 					run(pass, param);
 			}
 			break;
 			case dynamo::WHILE:
 			{
-				While* w = reinterpret_cast<While*>(node);
+				While* w = reinterpret_cast<While*>(node.get());
 				run(pass, w->getCheck());
 				run(pass, w->getBody());
 			}
 			break;
 			case dynamo::FOR:
 			{
-				For* f = reinterpret_cast<For*>(node);
+				For* f = reinterpret_cast<For*>(node.get());
 				run(pass, f->getInit());
 				run(pass, f->getCheck());
 				run(pass, f->getIncrement());
@@ -103,7 +103,7 @@ public:
 			break;
 			case dynamo::IF:
 			{
-				If* ifNode = reinterpret_cast<If*>(node);
+				If* ifNode = reinterpret_cast<If*>(node.get());
 				run(pass, ifNode->getCheck());
 				run(pass, ifNode->getBody());
 				run(pass, ifNode->getElse());
@@ -112,7 +112,7 @@ public:
 			
 			case dynamo::TABLE:
 			{
-				Table* table = reinterpret_cast<Table*>(node);
+				Table* table = reinterpret_cast<Table*>(node.get());
 				for(auto& n : table->getEntries())
 				{
 					run(pass, n.first);

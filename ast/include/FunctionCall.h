@@ -8,12 +8,12 @@ namespace dynamo
 
 class FunctionCall : public dynamo::Node
 {
-	std::vector<Node*> m_parameters;
+	std::vector<NodeRef> m_parameters;
 public:
 	NODE_TYPE getType() const override { return FUNCTION_CALL; }
 	
-	void addParameter(Node* n) { m_parameters.push_back(n); }
-	std::vector<Node*>& getParameters() { return m_parameters; }
+	void addParameter(NodeRef n) { m_parameters.push_back(n); }
+	std::vector<NodeRef>& getParameters() { return m_parameters; }
 };
 
 }

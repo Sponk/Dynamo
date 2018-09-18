@@ -9,13 +9,13 @@ namespace dynamo
 class Unop : public dynamo::Node
 {
 	std::string m_operation;
-	Node* m_operand;
+	NodeRef m_operand;
 public:
 	Unop(const std::string& str): m_operation(str) {}
 	NODE_TYPE getType() const override { return UNOP; }
 	
-	void setOperand(Node* node) { m_operand = node; }
-	Node* getOperand() { return m_operand; }
+	void setOperand(NodeRef node) { m_operand = node; }
+	NodeRef getOperand() { return m_operand; }
 	std::string getOperator() const { return m_operation; }
 	void setOperator(const std::string& str) { m_operation = str; }
 };

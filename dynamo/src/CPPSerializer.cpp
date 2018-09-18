@@ -24,7 +24,7 @@ using namespace dynamo;
 
 namespace
 {
-void dump(Node* node, VariableScope& scope, std::ostream& out)
+void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 {
 	if(!node)
 		return;
@@ -33,7 +33,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 	{
 		case dynamo::BLOCK:
 		{
-			Block* b = reinterpret_cast<Block*>(node);
+			Block* b = reinterpret_cast<Block*>(node.get());
 			// scope.push();
 			for(auto n : b->getChildren())
 			{
@@ -45,11 +45,11 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		break;
 		case dynamo::ASSIGNMENT:
 		{
-			Assignment* a = reinterpret_cast<Assignment*>(node);
+			auto a = reinterpret_cast<Assignment*>(node.get());
 			
 			if(a->getLHS()->getType() == dynamo::VARIABLE)
 			{
-				auto var = reinterpret_cast<Variable*>(a->getLHS());
+				auto var = std::reinterpret_pointer_cast<Variable>(a->getLHS());
 				// When we access a variable which is defined as local -> Create it in the current scope!
 				// If it does not exist yet -> Create it as well!
 				if(a->isLocal() || !scope.exists(var->getName()))
@@ -68,7 +68,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::VARIABLE:
 		{
-			Variable* v = reinterpret_cast<Variable*>(node);
+			auto v = std::reinterpret_pointer_cast<Variable>(node);
 			
 			if(!scope.exists(v->getName()))
 			{
@@ -88,14 +88,14 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::VALUE:
 		{
-			Value* v = reinterpret_cast<Value*>(node);
+			Value* v = reinterpret_cast<Value*>(node.get());
 			out << "DynamoRuntime::IFixedValue::makeValue(" << v->getValue() << ")"; // FIXME Check if value type and format are correct for Lua!
 		}
 		break;
 		
 		case dynamo::BINOP:
 		{
-			Binop* b = reinterpret_cast<Binop*>(node);
+			Binop* b = reinterpret_cast<Binop*>(node.get());
 			
 			// Special case for exponentiation
 			if(b->getOperator() == "**")
@@ -118,7 +118,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::UNOP:
 		{
-			Unop* u = reinterpret_cast<Unop*>(node);
+			Unop* u = reinterpret_cast<Unop*>(node.get());
 			out << u->getOperator() << " ";
 			dump(u->getOperand(), scope, out);
 		}
@@ -127,7 +127,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		case dynamo::FUNCTION_DECL:
 		{
 			scope.push();
-			FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node);
+			FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node.get());
 			// out << "auto ";
 			
 			std::string functionSelf;
@@ -156,7 +156,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 			{
 				if(f->getName()->getType() == dynamo::VARIABLE)
 				{
-					auto var = reinterpret_cast<Variable*>(f->getName());
+					auto var = std::reinterpret_pointer_cast<Variable>(f->getName());
 					if(!scope.get(var->getName()))
 					{
 						out << "DynamoRuntime::IFixedValue ";
@@ -203,28 +203,28 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::LABEL:
 		{
-			Label* l = reinterpret_cast<Label*>(node);
+			Label* l = reinterpret_cast<Label*>(node.get());
 			out << l->getName() << ":\n";
 		}
 		break;
 		
 		case dynamo::GOTO:
 		{
-			Goto* g = reinterpret_cast<Goto*>(node);
+			Goto* g = reinterpret_cast<Goto*>(node.get());
 			out << "goto " << g->getName() << "";
 		}
 		break;
 		
 		case dynamo::FUNCTION_CALL:
 		{
-			FunctionCall* f = reinterpret_cast<FunctionCall*>(node);
+			auto f = std::reinterpret_pointer_cast<FunctionCall>(node);
 			dump(node->getAccessor(), scope, out);
 			out << "(";
 			if(f->getAccessor() && !f->getAccessor()->getLastStaticAccess())
 			{
 				// We don't need the last access since it accesses our function.
-				Node* lastAccessor = f;
-				Node* reallyLast;
+				NodeRef lastAccessor = f;
+				NodeRef reallyLast;
 				while(lastAccessor->getAccessor() && lastAccessor->getAccessor()->getAccessor()) lastAccessor = lastAccessor->getAccessor();
 				reallyLast = lastAccessor->getAccessor();
 				lastAccessor->setAccessor(nullptr);
@@ -246,7 +246,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::WHILE:
 		{
-			While* w = reinterpret_cast<While*>(node);
+			While* w = reinterpret_cast<While*>(node.get());
 			scope.push();
 
 			if(w->isDoWhile())
@@ -272,7 +272,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::FOR:
 		{
-			For* f = reinterpret_cast<For*>(node);
+			For* f = reinterpret_cast<For*>(node.get());
 			
 			scope.push();
 
@@ -297,7 +297,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::IF:
 		{
-			If* ifNode = reinterpret_cast<If*>(node);
+			If* ifNode = reinterpret_cast<If*>(node.get());
 			
 			if(ifNode->getCheck())
 			{
@@ -325,7 +325,7 @@ void dump(Node* node, VariableScope& scope, std::ostream& out)
 		
 		case dynamo::TABLE:
 		{
-			Table* table = reinterpret_cast<Table*>(node);
+			Table* table = reinterpret_cast<Table*>(node.get());
 			size_t counter = 0;
 			
 			if(table->getEntries().empty())
@@ -382,7 +382,7 @@ void cppSerialize(const Module& module, std::ostream& out)
 	
 	for(auto& k : module.getNodes())
 	{
-		dump(k.get(), scope, ss);
+		dump(k, scope, ss);
 		ss << ";\n";
 	}
 	
