@@ -670,14 +670,16 @@ int parse(FILE *fp)
 static bool error = false;
 void yyerror(YYLTYPE* loc, char const* msg)
 {
-	std::cerr << "Parser error: " << msg << " at " << loc->last_line << ":" << loc->first_column << std::endl;
+	std::cerr << "Parser error: " << msg << " at " << loc->last_line << ":" << loc->first_column << " in " << root->getName() << std::endl;
 	error = true;
 	// std::exit(EXIT_FAILURE);
 }
 
+#include <algorithm>
 #include <PassManager.h>
 #include "LuaForLoopConversion.hpp"
 #include "LuaOperatorConversion.hpp"
+#include "LuaDofile.hpp"
 
 std::shared_ptr<Module> parse(const std::string& file, int argc, char** argv)
 {
@@ -685,6 +687,12 @@ std::shared_ptr<Module> parse(const std::string& file, int argc, char** argv)
 		throw std::runtime_error("Parser is not reentrant!");
 		
 	root = std::make_shared<Module>();
+	
+	std::string name = file;
+	std::replace(name.begin(), name.end(), '\\', '_');
+	std::replace(name.begin(), name.end(), '/', '_');
+	std::replace(name.begin(), name.end(), '.', '_');
+	root->setName(name);
 	
 	FILE* f = fopen(file.c_str(), "r");
 	if(!f)
@@ -697,11 +705,11 @@ std::shared_ptr<Module> parse(const std::string& file, int argc, char** argv)
 	auto retval = std::move(root);
 	
 	PassManager pm;
-	LuaForLoopConversion pass;
-	LuaOperatorConversion operatorConv;
+	pm.run<LuaForLoopConversion>(*retval);
+	pm.run<LuaOperatorConversion>(*retval);
 	
-	pm.run(pass, *retval);
-	pm.run(operatorConv, *retval);
+	LuaDofile dofile(*retval);
+	pm.run<LuaDofile>(dofile, *retval);
 	
 	if(error)
 		retval = nullptr;

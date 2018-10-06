@@ -10,12 +10,24 @@
 
 #include <iostream>
 
-
 #ifdef DYNAMO_GC
+
+#define GC_INCLUDE_NEW
 #include <gc/gc.h>
 #include <gc/gc_cpp.h>
 #include <gc/gc_allocator.h>
+
+#define DYNAMO_REALLOC(p, sz) GC_realloc(p, sz)
+#define DYNAMO_ALLOC(sz) GC_MALLOC(sz)
+#define DYNAMO_FREE(p)
+
+#else
+#define DYNAMO_REALLOC(p, sz) realloc(p, sz)
+#define DYNAMO_FREE(p) free(p)
+#define DYNAMO_ALLOC(sz) malloc(sz)
 #endif
+
+// #include "Table.hpp"
 
 namespace DynamoRuntime
 {
@@ -27,7 +39,8 @@ struct IFixedValueHash
 };
 
 #ifdef DYNAMO_GC
-typedef std::unordered_map<IFixedValue, IFixedValue, IFixedValueHash, std::equal_to<IFixedValue>, gc_allocator<std::pair<IFixedValue, IFixedValue>>> Table;
+typedef std::unordered_map<IFixedValue, IFixedValue, IFixedValueHash, std::equal_to<IFixedValue>, gc_allocator<std::pair<const IFixedValue, IFixedValue>>> Table;
+// typedef ITable<IFixedValue, IFixedValue, IFixedValueHash> Table;
 typedef Table* TableRef;
 
 typedef std::basic_string<char, std::char_traits<char>, gc_allocator<char>> String;
@@ -84,10 +97,27 @@ TYPES typeOf(const T& value)
 
 extern IFixedValue calculateTableIndex(const IFixedValue& v);
 
+#ifndef DYNAMO_GC
 struct IFixedValue
+#else
+struct IFixedValue : public gc_cleanup
+#endif
 {
 	IFixedValue() = default;
 	IFixedValue(const IFixedValue& t) { *this = t; }
+	~IFixedValue()
+	{
+#ifndef DYNAMO_GC
+		/*if(type == STRING)
+		{
+			get<StringRef>() = nullptr;
+		}
+		else if(type == TABLE)
+		{
+			get<TableRef>() = nullptr;
+		}*/
+#endif
+	}
 	
 	template<typename T>
 	static IFixedValue makeValue(const T& t)
@@ -114,10 +144,10 @@ struct IFixedValue
 	{
 		IFixedValue v;
 #ifdef DYNAMO_GC
-		TableRef t = new(GC_MALLOC(sizeof(Table))) Table(std::move(init));
+		TableRef t = new(/* GC_MALLOC(sizeof(Table)) */ GC) Table(std::move(init));
 		v.set(t);
 #else
-		TableRef t = std::make_shared<Table>(init);
+		TableRef t = std::make_shared<Table>(std::move(init));
 		new (v.getData()) TableRef();
 		v.set(t);
 #endif
@@ -128,7 +158,7 @@ struct IFixedValue
 	{
 		IFixedValue v;
 #ifdef DYNAMO_GC
-		StringRef t = new(GC_MALLOC(sizeof(String))) String(init);
+		StringRef t = new(/*GC_MALLOC(sizeof(String))*/ GC) String(init);
 		v.set(t);
 #else
 		StringRef t = std::make_shared<String>(init);
@@ -157,7 +187,13 @@ struct IFixedValue
 	{
 		IFixedValue v;
 #ifdef DYNAMO_GC
-		std::function<IFixedValue(Args...)>* t = new(GC_MALLOC_ATOMIC(sizeof(std::function<IFixedValue(Args...)>))) std::function<IFixedValue(Args...)>(init);
+		// /*GC_MALLOC_ATOMIC(sizeof(std::function<IFixedValue(Args...)>)))*/
+		std::function<IFixedValue(Args...)>* t = new(GC) std::function<IFixedValue(Args...)>(init);
+		GC_register_finalizer_ignore_self(t, [](void* t, void*) {
+			auto fn = reinterpret_cast<std::function<IFixedValue(Args...)>*>(t);
+			delete fn;
+		}, nullptr, nullptr, nullptr);
+
 		*reinterpret_cast<uintptr_t*>(v.data) = reinterpret_cast<uintptr_t>(t);
 #else
 		auto t = std::make_shared<std::function<IFixedValue(Args...)>>(init);
@@ -170,9 +206,9 @@ struct IFixedValue
 	}
 	
 #ifdef DYNAMO_GC
-	char data[8]; // So a pointer can fit!
+	char data[8] = {0}; // So a pointer can fit!
 #else
-	char data[16]; // So a shared_ptr can fit!
+	char data[16] = {0}; // So a shared_ptr can fit!
 #endif
 	
 	void* getData() { return data; }
@@ -193,6 +229,7 @@ struct IFixedValue
 	template<typename T>
 	T& get()
 	{
+		assert(type != NIL && "Invalid access to NIL!");
 		assert(isa<T>() && "Types for a cast must match!");
 		return *reinterpret_cast<T*>(getData());
 	}
@@ -200,6 +237,7 @@ struct IFixedValue
 	template<typename T>
 	const T& get() const
 	{
+		assert(type != NIL && "Invalid access to NIL!");
 		assert(isa<T>() && "Types for a cast must match!");
 		return *reinterpret_cast<const T*>(getData());
 	}
@@ -347,7 +385,6 @@ struct IFixedValue
 		if(!isa<TableRef>())
 			throw std::runtime_error("Trying to access non-table value as a table!");
 		
-		
 		return (*get<TableRef>())[calculateTableIndex(key)];
 	}
 	
@@ -355,7 +392,7 @@ struct IFixedValue
 	{
 		if(!isa<TableRef>())
 			throw std::runtime_error("Trying to access non-table value as a table!");
-		
+
 		return (*get<TableRef>()).at(calculateTableIndex(key));
 	}
 	
@@ -391,6 +428,8 @@ struct IFixedValue
 			return "nil";
 		if(type >= MAX_TYPE)
 			return "function";
+		if(type == TABLE)
+			return "table";
 		else if(isa<StringRef>())
 			return *get<StringRef>();
 		
@@ -515,12 +554,11 @@ std::size_t IFixedValueHash::operator()(const IFixedValue& k) const
 void dynamoInit()
 {
 	GC_INIT();
-	// GC_enable_incremental();
+	GC_enable_incremental();
 	GC_set_dont_expand(0);
 	//GC_set_full_freq(100);
 	
 	GC_expand_hp(4096*1024);
-	GC_disable();
 }
 
 #else

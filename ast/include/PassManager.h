@@ -22,6 +22,13 @@ class PassManager
 {
 public:
 	template<typename T>
+	void run(const Module& module)
+	{
+		T t;
+		run(t, module);
+	}
+	
+	template<typename T>
 	void run(T& pass, const Module& module)
 	{
 		for(auto& k : module.getNodes())

@@ -8,6 +8,7 @@ void registerGlobals(VariableScope& scope)
 {
 	scope.set("dassert", nullptr);
 	scope.set("print", nullptr);
+	//scope.set("os", nullptr);
 }
 }
 
@@ -28,7 +29,7 @@ DynamoRuntime::IFixedValue DynamoRuntime::calculateTableIndex(const DynamoRuntim
 	}
 	else if(v.isa<float>())
 		return v - 1.0f;
-	
+
 	return v;
 }
 
@@ -73,4 +74,18 @@ void print(Args&& ...args)
 	
 	std::cout << "\n";
 }
+
+#define MAKE_TABLE(name, content) DynamoRuntime::IFixedValue name = DynamoRuntime::IFixedValue::makeValue(content);
+
+#define MAKE_TABLE_FUNCTION(name, body, ...) { \
+	DynamoRuntime::IFixedValue::makeValue(#name), \
+	DynamoRuntime::IFixedValue::makeValue(std::function(body)) }
+	
+/*MAKE_TABLE(os, {
+	MAKE_TABLE_FUNCTION(exit, [] (const DynamoRuntime::IFixedValue& value) -> DynamoRuntime::IFixedValue { exit(value.get<double>()); return nil; })
+});*/
+
+#undef MAKE_TABLE
+#undef MAKE_TABLE_FUNCTION
+
 #endif

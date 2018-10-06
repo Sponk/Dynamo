@@ -1,5 +1,5 @@
 
-# find_package(BoehmGC)
+find_package(BoehmGC)
 
 function(add_lua_module)
 	cmake_parse_arguments(ARG "EXE" "NAME" "SOURCES" ${ARGN})
@@ -12,21 +12,34 @@ function(add_lua_module)
 	)
 	
 	foreach(FILE ${ARG_SOURCES})
+		get_filename_component(_WD ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} DIRECTORY)
+
 		add_custom_command(
 			TARGET ${ARG_NAME}-dynamo
 			COMMAND $<TARGET_FILE:dynamo> ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} | clang-format >> ${_OUT}
 			COMMENT "Compiling Lua file ${FILE}"
+			WORKING_DIRECTORY ${_WD}
 		)
 	endforeach()
 	
 	if(ARG_EXE)
-	
 		file(TOUCH ${_OUT})
 	
 		add_executable(${ARG_NAME} ${_OUT})
 		add_dependencies(${ARG_NAME} ${ARG_NAME}-dynamo)
 		
-		target_include_directories(${ARG_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/runtimes/cpp ${CMAKE_SOURCE_DIR}/backends/lua/stdlib)
+		target_include_directories(${ARG_NAME} PRIVATE 
+			${CMAKE_SOURCE_DIR}/runtimes/cpp 
+			${CMAKE_SOURCE_DIR}/backends/lua/stdlib 
+			${CMAKE_CURRENT_BINARY_DIR})
+		
+		list(REVERSE ARG_SOURCES)
+		list(GET ARG_SOURCES 0 MAIN_FILE)
+		
+		get_filename_component(MAIN_FILE_NAME ${MAIN_FILE} NAME)
+		
+		string(REPLACE "." "_" MAIN_NAME ${MAIN_FILE_NAME})
+		target_compile_definitions(${ARG_NAME} PUBLIC -D${MAIN_NAME}_MAIN)
 		
 		if(BOEHM_GC_FOUND)
 			target_compile_definitions(${ARG_NAME} PUBLIC -DDYNAMO_GC)

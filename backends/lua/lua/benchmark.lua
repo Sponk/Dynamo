@@ -64,4 +64,4 @@ function run_iter(n)
     end
 end
 
-run_iter(20)
+run_iter(5)

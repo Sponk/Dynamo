@@ -9,6 +9,12 @@ namespace dynamo
 class Node;
 class Pass
 {
+protected:
+	void check(bool b, const char* message)
+	{
+		if(!b)
+			throw std::runtime_error(message);
+	}
 public:
 	virtual void handleNode(NodeRef n) = 0;
 };

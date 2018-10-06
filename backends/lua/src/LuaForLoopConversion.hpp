@@ -17,7 +17,7 @@ public:
 			auto init = reinterpret_cast<dynamo::Assignment*>(loop->getInit().get());
 			
 			auto check = loop->getCheck();
-			auto newCheck = std::make_shared<dynamo::Binop>("!=");
+			auto newCheck = std::make_shared<dynamo::Binop>("<=");
 			
 			newCheck->setLHS(init->getLHS());
 			newCheck->setRHS(check);
