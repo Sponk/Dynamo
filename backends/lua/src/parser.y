@@ -283,17 +283,65 @@ stat: ';' { $$ = nullptr; }
 		}
 	| LOCAL varlist '=' explist 
 		{
-			assert($2->size() == $4->size());
-			auto block = new Block();
-			for(size_t i = 0; i < $2->size(); i++)
+			if($2->size() > 1 && $4->size() == 1)
 			{
-				block->addChild(new Assignment(
-							(*$2)[i], // lhs
-							(*$4)[i], // rhs
-							true)); // Local
+				auto block = new Block();
+				$$ = block;
+
+				/*for(size_t i = 0; i < $2->size(); i++)
+				{
+					block->addChild(new Assignment(
+								(*$2)[i], // lhs
+								(*$4)[i], // rhs
+								true)); // Local
+				}*/
+				
+				// First: Declare variables if they don't exist yet
+				for(size_t i = 0; i < $2->size(); i++)
+				{
+					block->addChild(new Assignment(
+								(*$2)[i], // lhs
+								std::make_shared<Value>(VALUE_NIL), // rhs
+								true)); // Local
+				}
+				
+				// Second: Execute function in question
+				auto innerBlock = new Block();
+				innerBlock->setLocalScope(true);
+				
+				block->addChild(innerBlock);
+				
+				innerBlock->addChild(new Assignment(
+								std::make_shared<Variable>("__packed"), // lhs
+								(*$4)[0], // rhs
+								true));
+								
+				for(size_t i = 0; i < $2->size(); i++)
+				{
+					auto value = std::make_shared<Variable>("__packed");
+					value->setAccessor(std::make_shared<Value>(VALUE_NUMBER, std::to_string((double) i+1)));
+					
+					innerBlock->addChild(new Assignment(
+									(*$2)[i], // lhs
+									value, // rhs
+									false)); // Don't create variables again
+				}
+				
 			}
-			
-			$$ = block;
+			else
+			{
+				assert($2->size() == $4->size());
+				auto block = new Block();
+				for(size_t i = 0; i < $2->size(); i++)
+				{
+					block->addChild(new Assignment(
+								(*$2)[i], // lhs
+								(*$4)[i], // rhs
+								true)); // Local
+				}
+				
+				$$ = block;
+			}
 		}
 	
 	| IF exp THEN statlist END

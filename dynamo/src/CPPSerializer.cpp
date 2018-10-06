@@ -35,13 +35,24 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 		case dynamo::BLOCK:
 		{
 			Block* b = reinterpret_cast<Block*>(node.get());
-			// scope.push();
+			
+			if(b->hasLocalScope())
+			{
+				out << "{\n";
+				scope.push();
+			}
+			
 			for(auto n : b->getChildren())
 			{
 				dump(n, scope, out);
 				out << ";\n";
 			}
-			// scope.pop();
+		
+			if(b->hasLocalScope())
+			{
+				out << "}\n";
+				scope.pop();
+			}
 		}
 		break;
 		case dynamo::ASSIGNMENT:

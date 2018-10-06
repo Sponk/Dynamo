@@ -63,12 +63,15 @@ public:
 class Block : public Node
 {
 	std::vector<NodeRef> m_children;
+	bool m_localScope = false;
 public:
 	
 	NODE_TYPE getType() const override { return BLOCK; }
 	std::vector<NodeRef>& getChildren() { return m_children; }
 	void addChild(NodeRef n) { m_children.push_back(n); }
 	void addChild(Node* n) { addChild(NodeRef(n)); }
+	void setLocalScope(bool b) { m_localScope = b; }
+	bool hasLocalScope() const { return m_localScope; }
 };
 
 }

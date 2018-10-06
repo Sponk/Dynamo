@@ -8,7 +8,7 @@ void registerGlobals(VariableScope& scope)
 {
 	scope.set("dassert", nullptr);
 	scope.set("print", nullptr);
-	//scope.set("os", nullptr);
+	scope.set("os", nullptr);
 }
 }
 
@@ -75,15 +75,29 @@ void print(Args&& ...args)
 	std::cout << "\n";
 }
 
+template<typename Fn, typename... Args>
+DynamoRuntime::IFixedValue callScript(Fn fn, Args&& ...args)
+{
+	if constexpr(std::is_same<void, typename std::result_of<Fn>::type>::value)
+	{
+		fn(DynamoRuntime::IFixedValue::makeValue(args)...);
+		return DynamoRuntime::IFixedValue();
+	}
+	else
+	{
+		return DynamoRuntime::IFixedValue::makeValue(fn(DynamoRuntime::IFixedValue::makeValue(args)...));
+	}
+}
+
 #define MAKE_TABLE(name, content) DynamoRuntime::IFixedValue name = DynamoRuntime::IFixedValue::makeValue(content);
 
 #define MAKE_TABLE_FUNCTION(name, body, ...) { \
 	DynamoRuntime::IFixedValue::makeValue(#name), \
 	DynamoRuntime::IFixedValue::makeValue(std::function(body)) }
 	
-/*MAKE_TABLE(os, {
+MAKE_TABLE(os, {
 	MAKE_TABLE_FUNCTION(exit, [] (const DynamoRuntime::IFixedValue& value) -> DynamoRuntime::IFixedValue { exit(value.get<double>()); return nil; })
-});*/
+});
 
 #undef MAKE_TABLE
 #undef MAKE_TABLE_FUNCTION

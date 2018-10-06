@@ -51,7 +51,7 @@ local function inner_iter(mindepth, maxdepth)
 
     if check ~= EXPECT_CKSUM then
         -- puts("bad checksum: " .. checksum .. " vs " .. EXPECT_CKSUM)
-        -- os.exit(1)
+        os.exit(1)
 	    print("DEATH AND DISPAIR! " .. check);
 	  --  while true do end
     end
