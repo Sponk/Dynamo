@@ -9,6 +9,7 @@ void registerGlobals(VariableScope& scope)
 	scope.set("dassert", nullptr);
 	scope.set("print", nullptr);
 	scope.set("os", nullptr);
+	scope.set("string", nullptr);
 }
 }
 
@@ -63,6 +64,8 @@ void print(Args&& ...args)
 			std::cout << "<table " << std::hex << "0x" << msg.get<DynamoRuntime::TableRef>() << ">" << std::dec;
 		else if(msg.type >= DynamoRuntime::MAX_TYPE)
 			std::cout << "<function " << std::hex << "0x" << *((uintptr_t*) msg.getData()) << ">" << std::dec;
+		else if(msg.type == DynamoRuntime::NIL)
+			std::cout << "nil" << std::dec;
 		else
 			DynamoRuntime::IFixedValue::doTyped(msg, [&msg](auto value) {
 				std::cout << value;
@@ -97,6 +100,18 @@ DynamoRuntime::IFixedValue callScript(Fn fn, Args&& ...args)
 	
 MAKE_TABLE(os, {
 	MAKE_TABLE_FUNCTION(exit, [] (const DynamoRuntime::IFixedValue& value) -> DynamoRuntime::IFixedValue { exit(value.get<double>()); return nil; })
+});
+
+MAKE_TABLE(string, {
+	MAKE_TABLE_FUNCTION(byte, [] (const DynamoRuntime::IFixedValue& str, const DynamoRuntime::IFixedValue& idx) -> DynamoRuntime::IFixedValue {
+		auto nativeStr = str.get<DynamoRuntime::StringRef>();
+		auto nativeIdx = (int) idx.get<double>();
+		
+		if(nativeIdx <= 0 || nativeIdx > nativeStr->size())
+			return nil;
+		
+		return DynamoRuntime::IFixedValue::makeValue((double) (*nativeStr)[nativeIdx - 1]);
+	})
 });
 
 #undef MAKE_TABLE
