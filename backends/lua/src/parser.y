@@ -182,23 +182,27 @@ stat: ';' { $$ = nullptr; }
 			auto block = new Block();
 			for(size_t i = 0; i < $1->size(); i++)
 			{
-				block->addChild(new Assignment(
+				block->addChild(std::make_shared<Assignment>(
 							(*$1)[i], // lhs
 							(*$3)[i], // rhs
 							false)); // Local
 			}
 			
 			$$ = block;
+			
+			delete $3;
+			delete $1;
 		}
 	| functioncall { $$ = $1; }
 	| label { $$ = $1; }
 	| BREAK { $$ = new Break(); }
-	| GOTO IDENTIFIER { $$ = new Goto($2); }
+	| GOTO IDENTIFIER { $$ = new Goto($2); delete $2; }
 	| DO statlist END 
 		{ 
 			auto block = new Block();
 			block->getChildren() = std::move(*$2);
 			$$ = block;
+			delete $2;
 		}
 	
 	| WHILE exp DO statlist END 
@@ -211,7 +215,9 @@ stat: ';' { $$ = nullptr; }
 			loop->setBody(NodeRef(block));
 			loop->setCheck(NodeRef($2));
 			loop->setDoWhile(false);
-			$$ = loop; 
+			$$ = loop;
+			
+			delete $4;
 		}
 	
 	| REPEAT statlist UNTIL exp
@@ -223,21 +229,25 @@ stat: ';' { $$ = nullptr; }
 			loop->setBody(NodeRef(block));
 			loop->setCheck(NodeRef($4));
 			loop->setDoWhile(true);
-			$$ = loop; 
+			$$ = loop;
+			
+			delete $2;
 		}
 	
 	| FOR IDENTIFIER '=' exp ',' exp DO statlist END 
 		{
 			auto loop = new For();
-			auto block = new Block();
+			auto block = std::make_shared<Block>();
 			block->getChildren() = std::move(*$8);
 			
-			loop->setBody(NodeRef(block));
+			loop->setBody(block);
 			loop->setCheck(NodeRef($6));
 			loop->setIncrement(nullptr);
 			loop->setInit(std::make_shared<Assignment>(std::make_shared<Variable>($2), NodeRef($4)));
 			
 			$$ = loop;
+			delete $8;
+			delete $2;
 		}
 		
 	| FOR IDENTIFIER '=' exp ',' exp ',' exp DO statlist END
@@ -252,6 +262,9 @@ stat: ';' { $$ = nullptr; }
 			loop->setInit(std::make_shared<Assignment>(std::make_shared<Variable>($2), NodeRef($4)));
 			
 			$$ = loop;
+			
+			delete $10;
+			delete $2;
 		}
 	
 	| FOR identifierlist IN explist DO statlist END { $$ = new Value(VALUE_NIL); }
@@ -267,19 +280,22 @@ stat: ';' { $$ = nullptr; }
 			$4->setName(std::make_shared<Variable>($3));
 			$4->setLocal(true);
 			$$ = $4;
+			
+			delete $3;
 		}
 	| LOCAL identifierlist 
 		{ 
 			auto block = new Block();
 			for(size_t i = 0; i < $2->size(); i++)
 			{
-				block->addChild(new Assignment(
+				block->addChild(std::make_shared<Assignment>(
 							std::make_shared<Variable>(std::move((*$2)[i])), // lhs
 							std::make_shared<Value>(VALUE_NIL), // rhs
 							true)); // Local
 			}
 			
 			$$ = block;
+			delete $2;
 		}
 	| LOCAL varlist '=' explist 
 		{
@@ -288,18 +304,10 @@ stat: ';' { $$ = nullptr; }
 				auto block = new Block();
 				$$ = block;
 
-				/*for(size_t i = 0; i < $2->size(); i++)
-				{
-					block->addChild(new Assignment(
-								(*$2)[i], // lhs
-								(*$4)[i], // rhs
-								true)); // Local
-				}*/
-				
 				// First: Declare variables if they don't exist yet
 				for(size_t i = 0; i < $2->size(); i++)
 				{
-					block->addChild(new Assignment(
+					block->addChild(std::make_shared<Assignment>(
 								(*$2)[i], // lhs
 								std::make_shared<Value>(VALUE_NIL), // rhs
 								true)); // Local
@@ -311,7 +319,7 @@ stat: ';' { $$ = nullptr; }
 				
 				block->addChild(innerBlock);
 				
-				innerBlock->addChild(new Assignment(
+				innerBlock->addChild(std::make_shared<Assignment>(
 								std::make_shared<Variable>("__packed"), // lhs
 								(*$4)[0], // rhs
 								true));
@@ -321,7 +329,7 @@ stat: ';' { $$ = nullptr; }
 					auto value = std::make_shared<Variable>("__packed");
 					value->setAccessor(std::make_shared<Value>(VALUE_NUMBER, std::to_string((double) i+1)));
 					
-					innerBlock->addChild(new Assignment(
+					innerBlock->addChild(std::make_shared<Assignment>(
 									(*$2)[i], // lhs
 									value, // rhs
 									false)); // Don't create variables again
@@ -334,7 +342,7 @@ stat: ';' { $$ = nullptr; }
 				auto block = new Block();
 				for(size_t i = 0; i < $2->size(); i++)
 				{
-					block->addChild(new Assignment(
+					block->addChild(std::make_shared<Assignment>(
 								(*$2)[i], // lhs
 								(*$4)[i], // rhs
 								true)); // Local
@@ -342,6 +350,9 @@ stat: ';' { $$ = nullptr; }
 				
 				$$ = block;
 			}
+			
+			delete $4;
+			delete $2;
 		}
 	
 	| IF exp THEN statlist END
@@ -353,7 +364,9 @@ stat: ';' { $$ = nullptr; }
 			i->setCheck(NodeRef($2));
 			i->setBody(NodeRef(block));
 			
-			$$ = i; 
+			$$ = i;
+			
+			delete $4;
 		}
 		
 	| IF exp THEN statlist ELSE statlist END
@@ -372,7 +385,10 @@ stat: ';' { $$ = nullptr; }
 			
 			i->setElse(NodeRef(e));
 			
-			$$ = i; 
+			$$ = i;
+			
+			delete $4;
+			delete $6;
 		}
 		
 	| IF exp THEN statlist elselist END
@@ -390,7 +406,10 @@ stat: ';' { $$ = nullptr; }
 			}
 			
 			i->setElse((*$5)[0]);
-			$$ = i; 
+			$$ = i;
+			
+			delete $4;
+			delete $5;
 		}
 	
 	| retstat  { $$ = $1; }
@@ -407,6 +426,8 @@ elselist:
 			i->setBody(NodeRef(block));
 			
 			$$ = new std::vector<NodeRef>({ NodeRef(i) });
+			
+			delete $4;
 		}
 	| elselist ELSEIF exp THEN statlist
 		{
@@ -419,6 +440,8 @@ elselist:
 			
 			$1->push_back(NodeRef(i));
 			$$ = $1;
+			
+			delete $5;
 		}
 	| elselist ELSE statlist
 		{
@@ -430,6 +453,8 @@ elselist:
 				
 			$1->push_back(NodeRef(i));
 			$$ = $1;
+			
+			delete $3;
 		}
 	;
 
@@ -443,6 +468,7 @@ retstat:  RETURN ';' { $$ = new Return(); }
 			block->getChildren() = std::move(*$2);
 			
 			$$->setAccessor(NodeRef(block));
+			delete $2;
 		}
 	| RETURN explist
 		{ 
@@ -452,12 +478,13 @@ retstat:  RETURN ';' { $$ = new Return(); }
 			block->getChildren() = std::move(*$2);
 			
 			$$->setAccessor(NodeRef(block));
+			delete $2;
 		}
 	;
 	
 label: ':'':' IDENTIFIER ':'':' { $$ = new Label($3); delete $3; };
 
-name: IDENTIFIER { $$ = new Variable($1); }
+name: IDENTIFIER { $$ = new Variable($1); delete $1;}
 	| name '.' IDENTIFIER 
 		{ 
 			$$ = $1;
@@ -546,7 +573,7 @@ exp:
 	| FALSE { $$ = new Value(VALUE_BOOLEAN, "false"); }
 	| TRUE { $$ = new Value(VALUE_BOOLEAN, "true"); }
 	| NUMBER { $$ = new Value(VALUE_NUMBER, std::to_string($1)); }
-	| STRING { $$ = new Value(VALUE_STRING, $1); }
+	| STRING { $$ = new Value(VALUE_STRING, $1); delete $1; }
 	| '.''.''.'  { $$ = new Value(VALUE_NIL); }
 	| functiondef { $$ = $1; }
 	| var  { $$ = $1; }
@@ -591,6 +618,8 @@ functioncall: prefixexp args
 			call->getParameters() = std::move(*$2);
 			call->setAccessor(NodeRef($1));
 			$$ = call;
+			
+			delete $2;
 		}
 	| prefixexp ':' IDENTIFIER args
 		{
@@ -604,6 +633,9 @@ functioncall: prefixexp args
 			iter->getAccessor()->setStaticAccess(false);
 			
 			$$ = call;
+			
+			delete $4;
+			delete $3;
 		}
 
 args: '(' ')' { $$ = new std::vector<NodeRef>(); }
@@ -623,6 +655,8 @@ funcbody: '(' ')' statlist END
 			func->setBody(NodeRef(block));
 			
 			$$ = func;
+			
+			delete $3;
 		}
 	| '(' parlist ')' statlist END
 		{
@@ -679,7 +713,7 @@ field: '[' exp ']' '=' exp
 			$$ = new std::pair<NodeRef, NodeRef>(new Variable($1), $3);
 		}
 	| exp
-		{  
+		{
 			$$ = new std::pair<NodeRef, NodeRef>(nullptr, $1);
 		}
 	;
