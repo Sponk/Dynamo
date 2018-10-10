@@ -209,7 +209,25 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 		case dynamo::RETURN:
 		{
 			out << "return ";
-			dump(node->getAccessor(), scope, out);
+			
+			auto accessor = node->getAccessor();
+			Block* block = nullptr;
+			
+			if(accessor 
+				&& accessor->getType() == BLOCK 
+				&& (block = reinterpret_cast<Block*>(accessor.get()))->getChildren().size() > 1)
+			{
+				out << "DynamoRuntime::IFixedValue::makeValue({";
+				for(size_t i = 0; i < block->getChildren().size(); i++)
+				{
+					out << "{ DynamoRuntime::calculateTableIndex(DynamoRuntime::IFixedValue::makeValue(" << i + 1 << ".0)), ";
+					dump(block->getChildren()[i], scope, out);
+					out << "},";
+				}
+				out << "})";
+			}
+			else
+				dump(node->getAccessor(), scope, out);
 		}
 		break;
 		
