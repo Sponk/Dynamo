@@ -7,6 +7,7 @@ FLEX_TARGET(lexer src/lexer.l  ${CMAKE_CURRENT_BINARY_DIR}/lexer.cc)
 ADD_FLEX_BISON_DEPENDENCY(lexer parser)
 
 add_library(backend
+	src/LuaMultiReturn.hpp
 	${BISON_parser_OUTPUTS}
 	${FLEX_lexer_OUTPUTS})
 

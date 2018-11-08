@@ -146,31 +146,8 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 		{
 			scope.push();
 			FunctionDecl* f = reinterpret_cast<FunctionDecl*>(node.get());
-			// out << "auto ";
-			
-			std::string functionSelf;
-			if(f->getName() && !f->getName()->getStaticAccess())
-			{
-				scope.set("self", nullptr);
-				functionSelf += "DynamoRuntime::IFixedValue self"; 
-				functionSelf += (f->getArguments().empty() ? "" : ", ");
-			}
-			
-			std::string functionDef;
-			functionDef += "std::function<DynamoRuntime::IFixedValue(" + functionSelf;
-			for(auto& param : f->getArguments())
-			{
-				scope.set(param, nullptr);
-				functionDef += "DynamoRuntime::IFixedValue " + param + (&param != &f->getArguments().back() ? ", " : "");
-			}
-			
-			functionDef += ")>";
-			
-			if(f->getName() == nullptr)
-			{
-				out << functionDef << "([&] ";
-			}
-			else
+		
+			if(f->getName() != nullptr)
 			{
 				if(f->getName()->getType() == dynamo::VARIABLE)
 				{
@@ -185,14 +162,33 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 				dump(f->getName(), scope, out);
 				
 				out << " = DynamoRuntime::IFixedValue::makeValue(";
-				out << functionDef << "([&]";
 			}
 			
-			out << "(" << functionSelf;
+			out << "std::function<DynamoRuntime::IFixedValue(DynamoRuntime::IFixedValue*, size_t)>(";
+			out << "[&] (DynamoRuntime::IFixedValue* __args__, size_t __argnum__) -> DynamoRuntime::IFixedValue {\n";
+			
+			const auto hasSelf = f->getName() && !f->getName()->getStaticAccess();
+			out << "assert(__argnum__ >= " << f->getArguments().size() + (hasSelf ? 1 : 0) << ");\n";
+			
+			if(f->isVararg())
+			{
+				out << "DynamoRuntime::IFixedValue* __varargs__ = __args__ + " << f->getArguments().size() << ";\n";
+				out << "size_t __varargnum__ = __argnum__ - " << f->getArguments().size() << ";\n";
+			}
+			
+			unsigned short ctr = 0;
+			if(hasSelf)
+			{
+				scope.set("self", nullptr);
+				out << "DynamoRuntime::IFixedValue& self = __args__[0];\n";
+				ctr++;
+			}
 			
 			for(auto& param : f->getArguments())
-				out << "DynamoRuntime::IFixedValue " << param << (&param != &f->getArguments().back() ? ", " : "");
-			out << ") -> DynamoRuntime::IFixedValue \n{\n";
+			{
+				scope.set(param, nullptr);
+				out << "DynamoRuntime::IFixedValue& " << param << " = __args__[" << ctr++ << "];\n";
+			}
 			
 			scope.push();
 			dump(f->getBody(), scope, out);
@@ -209,25 +205,7 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 		case dynamo::RETURN:
 		{
 			out << "return ";
-			
-			auto accessor = node->getAccessor();
-			Block* block = nullptr;
-			
-			if(accessor 
-				&& accessor->getType() == BLOCK 
-				&& (block = reinterpret_cast<Block*>(accessor.get()))->getChildren().size() > 1)
-			{
-				out << "DynamoRuntime::IFixedValue::makeValue({";
-				for(size_t i = 0; i < block->getChildren().size(); i++)
-				{
-					out << "{ DynamoRuntime::calculateTableIndex(DynamoRuntime::IFixedValue::makeValue(" << i + 1 << ".0)), ";
-					dump(block->getChildren()[i], scope, out);
-					out << "},";
-				}
-				out << "})";
-			}
-			else
-				dump(node->getAccessor(), scope, out);
+			dump(node->getAccessor(), scope, out);
 		}
 		break;
 		
@@ -369,6 +347,12 @@ void dump(NodeRef node, VariableScope& scope, std::ostream& out)
 				out << "DynamoRuntime::IFixedValue::makeValue(DynamoRuntime::Table())";
 				break;
 			}
+			else if(table->getEntries().size() == 1 
+				&& reinterpret_cast<Variable*>(table->getEntries().front().second.get())->getName() == "...")
+			{
+				out << "DynamoRuntime::buildTableFromArray(__varargs__, __varargnum__)";
+				break;
+			}
 			
 			out << "DynamoRuntime::IFixedValue::makeValue({\n";
 			
@@ -430,8 +414,12 @@ void cppSerialize(const Module& module, std::ostream& out)
 
 	if(module.isMainModule())
 	{
+		ss << "#ifdef DYNAMO_SCRIPT_MAIN\n";
+		ss << "#define scriptMain " << module.getName() << "\n";
+		ss << "#else\n";
 		ss << "int main()\n{\nDynamoRuntime::IFixedValue result = " << module.getName() << "();\n"
 			<< "if(result.isa<int>()) return result.get<int>(); else if(result.isa<float>()) return (int) result.get<float>(); else if(result.isa<double>()) return (int) result.get<double>();\n return 1;}\n";
+		ss << "#endif\n";
 	}
 	
 	// Write to file!

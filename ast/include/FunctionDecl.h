@@ -12,6 +12,7 @@ class FunctionDecl : public dynamo::Node
 	std::vector<std::string> m_arguments;
 	NodeRef m_name;
 	bool m_local = false;
+	bool m_vararg = false;
 	
 public:
 	NODE_TYPE getType() const override { return FUNCTION_DECL; }
@@ -28,6 +29,9 @@ public:
 	
 	void setLocal(bool v) { m_local = v; }
 	bool isLocal() const { return m_local; }
+	
+	void setVararg(bool v) { m_vararg = v; }
+	bool isVararg() const { return m_vararg; }
 };
 
 }

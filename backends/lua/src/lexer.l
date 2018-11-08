@@ -66,6 +66,7 @@ int yycolumn = -1;
 ">=" { return GREATER_EQUAL; }
 ">>" { return SHIFT_RIGHT; }
 "<<" { return SHIFT_LEFT; }
+"..." { return VARARG; }
 ".." { return CONCAT; }
 
 0x[0-9A-Fa-f]+|(-?)[0-9]+ { yylval->number = std::stoll(yytext); return NUMBER; }

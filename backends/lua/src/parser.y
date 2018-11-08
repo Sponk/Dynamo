@@ -101,6 +101,7 @@ std::shared_ptr<Module> root;
 %token TRUE
 %token UNTIL
 %token WHILE
+%token VARARG
 
 %token EQUAL
 %token NOT_EQUAL
@@ -660,8 +661,14 @@ funcbody: '(' ')' statlist END
 		}
 	| '(' parlist ')' statlist END
 		{
-		
 			auto func = new FunctionDecl();
+		
+			if(!$2->empty() && $2->back() == "...")
+			{
+				func->setVararg(true);
+				$2->pop_back();
+			}
+			
 			func->setArguments(std::move(*$2));
 			
 			auto block = new Block();
@@ -676,8 +683,8 @@ funcbody: '(' ')' statlist END
 	;
 	
 parlist: identifierlist { $$ = $1; }
-	| "..." { $$ = new std::vector<std::string>({"..."}); }
-	| identifierlist ',' "..." 
+	| VARARG { $$ = new std::vector<std::string>({"..."}); }
+	| identifierlist ',' VARARG 
 		{
 			$$ = $1;
 			$$->push_back("...");
@@ -691,6 +698,13 @@ tableconstructor: '{' '}' { $$ = new Table(); }
 			$$ = table;
 			
 			delete $2;
+		}
+		
+	| '{' VARARG '}'
+		{
+			auto table = new Table();
+			table->getEntries().push_back(std::make_pair(nullptr, std::make_shared<Variable>("...")));
+			$$ = table;
 		}
 	;
 	
@@ -762,6 +776,7 @@ void yyerror(YYLTYPE* loc, char const* msg)
 #include "LuaForLoopConversion.hpp"
 #include "LuaOperatorConversion.hpp"
 #include "LuaDofile.hpp"
+#include "LuaMultiReturn.hpp"
 
 std::shared_ptr<Module> parse(const std::string& file, int argc, char** argv)
 {
@@ -789,6 +804,7 @@ std::shared_ptr<Module> parse(const std::string& file, int argc, char** argv)
 	PassManager pm;
 	pm.run<LuaForLoopConversion>(*retval);
 	pm.run<LuaOperatorConversion>(*retval);
+	pm.run<LuaMultiReturn>(*retval);
 	
 	LuaDofile dofile(*retval);
 	pm.run<LuaDofile>(dofile, *retval);

@@ -36,14 +36,13 @@ int processModule(const std::string& file, int argc, char** argv)
 	
 	for(auto& import : module->getImports())
 	{
-		futures.push_back(std::move(std::async(std::launch::async, processModule, import, argc, argv)));
+		futures.push_back(std::async(std::launch::async, processModule, import, argc, argv));
 	}
 	
 	// Here we can do fully parallel stuff!
 	// FIXME Ugly!
 	module->setMainModule(file == argv[1]);
 	
-	int retval = 0;
 	for(auto& future : futures)
 		if(future.get())
 			return 1;

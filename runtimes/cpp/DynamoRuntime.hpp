@@ -7,6 +7,8 @@
 #include <functional>
 #include <unordered_map>
 #include <cmath>
+#include <cstdarg>
+#include <cstring>
 
 #include <iostream>
 
@@ -64,6 +66,7 @@ enum TYPES
 	STRING,
 	TABLE,
 	UNDEFINED,
+	FUNCTION,
 	MAX_TYPE
 };
 
@@ -182,12 +185,12 @@ struct IFixedValue : public gc_cleanup
 		return v;
 	}
 	
+	// TODO: Error when not of the form (IFixedValue*, size_t)!
 	template<typename... Args>
 	static IFixedValue makeValue(const std::function<IFixedValue(Args...)>& init)
 	{
 		IFixedValue v;
 #ifdef DYNAMO_GC
-		// /*GC_MALLOC_ATOMIC(sizeof(std::function<IFixedValue(Args...)>)))*/
 		std::function<IFixedValue(Args...)>* t = new(GC) std::function<IFixedValue(Args...)>(init);
 		GC_register_finalizer_ignore_self(t, [](void* t, void*) {
 			auto fn = reinterpret_cast<std::function<IFixedValue(Args...)>*>(t);
@@ -199,9 +202,7 @@ struct IFixedValue : public gc_cleanup
 		auto t = std::make_shared<std::function<IFixedValue(Args...)>>(init);
 		*reinterpret_cast<std::shared_ptr<std::function<IFixedValue(Args...)>>*>(v.data) = t;
 #endif
-		// Add num of args to type
-		static_assert(MAX_TYPE + sizeof...(Args) < 256, "Too many arguments to fit into the type tag!");
-		v.type = MAX_TYPE + sizeof...(Args);
+		v.type = FUNCTION;
 		return v;
 	}
 	
@@ -215,8 +216,6 @@ struct IFixedValue : public gc_cleanup
 	const void* getData() const { return data; }
 	
 	// Contains the type tag for this value.
-	// Functions have the number of arguments encoded into this as well
-	// as "MAX_TYPE + <num args>" to at least do basic type checking at compile time!
 	unsigned char type = NIL;
 	
 	template<typename T>
@@ -362,21 +361,20 @@ struct IFixedValue : public gc_cleanup
 	template<typename... Args>
 	IFixedValue operator()(Args&&... args)
 	{
-		if(type < MAX_TYPE)
+		if(type != FUNCTION)
 			throw std::runtime_error("Object is not a function!");
-		else if(type - MAX_TYPE != sizeof...(args))
-			throw std::runtime_error("Function called with wrong number of arguments!");
 		
+		std::array<IFixedValue, sizeof...(args)> arguments({args...});
 #ifdef DYNAMO_GC
-		auto callable = *reinterpret_cast<std::function<IFixedValue(Args...)>**>(&data);
-		
+		auto callable = *reinterpret_cast<std::function<IFixedValue(IFixedValue*, size_t)>**>(&data);
+
 		assert(callable);
-		return (*callable)(args...);
+		return (*callable)(arguments.data(), sizeof...(args)); // Finalize with NIL so we can find the end
 #else
-		auto callable = reinterpret_cast<std::shared_ptr<std::function<IFixedValue(Args...)>>*>(data);
+		auto callable = reinterpret_cast<std::function<IFixedValue(IFixedValue*, size_t)>>*>(data);
 		
 		assert(callable);
-		return (*callable->get())(args...);
+		return (*callable)(arguments.data(), sizeof...(args));
 #endif
 	}
 	
@@ -433,7 +431,7 @@ struct IFixedValue : public gc_cleanup
 		else if(isa<StringRef>())
 			return *get<StringRef>();
 		
-		return doTyped<String>(*this, [this](auto that) {
+		return doTyped<String>(*this, [](auto that) {
 			if constexpr(std::is_same<bool, decltype(that)>::value)
 				return String(that ? "true" : "false");
 			
@@ -547,6 +545,15 @@ std::size_t IFixedValueHash::operator()(const IFixedValue& k) const
 		const uint64_t* hash = reinterpret_cast<const uint64_t*>(k.getData());
 		return *hash << k.type;
 	});
+}
+
+Table buildTableFromArray(IFixedValue* array, size_t count)
+{
+	Table tbl;
+	for(size_t i = 0; i < count; i++)
+		tbl[IFixedValue::makeValue((double) i)] = array[i];
+	
+	return tbl;
 }
 
 #ifdef DYNAMO_GC
